@@ -1,0 +1,45 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: agentflow
+          POSTGRES_PASSWORD: agentflow
+          POSTGRES_DB: agentflow_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U agentflow -d agentflow_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      DATABASE_URL: postgresql+psycopg://agentflow:agentflow@localhost:5432/agentflow_test
+      TEST_DATABASE_URL: postgresql+psycopg://agentflow:agentflow@localhost:5432/agentflow_test
+      API_KEYS: '{"ci-key":"ci-user"}'
+      API_KEY: ci-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.0'
+      - run: uv sync --frozen
+      - run: uv run ruff check . && uv run ruff format --check .
+      - run: uv run pytest -q
+      - run: uv run alembic upgrade head && uv run alembic check
+      - name: Real queue integration
+        run: |
+          uv run uvicorn app.main:app > /tmp/api.log 2>&1 &
+          API_PID=$!
+          uv run celery -A app.workers.worker:celery worker --loglevel=info --concurrency=2 > /tmp/worker.log 2>&1 &
+          WORKER_PID=$!
+          trap 'kill "$API_PID" "$WORKER_PID" || true; cat /tmp/api.log /tmp/worker.log' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health/ready; then break; fi
+            sleep 1
+          done
+          uv run python examples/demo.py

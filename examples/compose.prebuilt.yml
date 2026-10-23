@@ -1,0 +1,8 @@
+# Optional overlay for using the image built by scripts/cloud_build.py.
+services:
+  api:
+    image: agentflow:local
+  worker:
+    image: agentflow:local
+  migrate:
+    image: agentflow:local

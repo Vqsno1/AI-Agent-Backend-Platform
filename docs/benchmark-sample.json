@@ -1,0 +1,13 @@
+{
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "logical_cpus_visible": 5,
+  "tasks": 10,
+  "client_concurrency": 2,
+  "provider": "mock (verify LLM_PROVIDER before running)",
+  "elapsed_s": 0.3231,
+  "completed_tasks_per_s": 30.95,
+  "post_median_ms": 5.46,
+  "completion_median_ms": 61.85,
+  "completion_p95_ms": 74.09
+}
